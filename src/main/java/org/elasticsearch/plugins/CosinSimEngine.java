@@ -27,7 +27,7 @@ public class CosinSimEngine implements ScriptEngine {
     @Override
     public String getType() {
         // script name
-        return "cosinSimPlugin";
+        return "cosin-sim-plugin";
     }
 
     @Override
