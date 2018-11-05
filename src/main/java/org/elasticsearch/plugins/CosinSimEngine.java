@@ -125,6 +125,7 @@ public class CosinSimEngine implements ScriptEngine {
                  *  this field value doesn't read from DocValues, which is slow than read value from doc vlaues,
                  *  in order to read value from doc values, we must store the vector as a str splited by ",", cause double array
                  *  can't not store in doc values
+                 *  TODO: use binary coding instead of vectorStr
                  */
 //                Object object = lookup.source().get(field);
                 SortedSetDocValues docValues = DocValues.getSortedSet(leafContext.reader(), field);
