@@ -6,6 +6,7 @@
 
     <groupId>org.elasticsearch.plugins</groupId>
     <artifactId>cosin-script-plugin</artifactId>
+    <description>a plugin to calculate the similarity of two wector</description>
     <version>6.2.4</version>
 
     <packaging>jar</packaging>
