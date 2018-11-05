@@ -2,7 +2,11 @@ package org.elasticsearch.plugins;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.SortedNumericDocValues;
+import org.apache.lucene.index.SortedSetDocValues;
+import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.ElasticsearchGenerationException;
 import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
@@ -23,6 +27,7 @@ public class CosinSimEngine implements ScriptEngine {
     private final static Logger logger = LogManager.getLogger(CosinSimEngine.class);
     private static final String FIELD = "field";
     private static String VECTOR = "vector";
+    private static String NEGATIVE_TO_ZERO = "negative_to_zero";
 
     @Override
     public String getType() {
@@ -38,7 +43,7 @@ public class CosinSimEngine implements ScriptEngine {
         }
 
         // we use the script "source" as the script identifier
-        if ("vector".equals(scriptSource)) {
+        if (VECTOR.equals(scriptSource)) {
             SearchScript.Factory factory = CosinLeafFactory::new;
             return context.factoryClazz.cast(factory);
         }
@@ -92,12 +97,12 @@ public class CosinSimEngine implements ScriptEngine {
         }
     }
 
-    private static class CosinScript extends SearchScript{
+    private static class CosinScript extends SearchScript {
         private final Map<String, Object> params;
         private final SearchLookup lookup;
         private final LeafReaderContext leafContext;
         private final String field;
-        private final List<Double> vector;
+        private final List<Double> queryVector;
 
 
         public CosinScript(Map<String, Object> params, SearchLookup lookup, LeafReaderContext leafContext, String field, List<Double> vector) {
@@ -107,54 +112,80 @@ public class CosinSimEngine implements ScriptEngine {
             this.lookup = lookup;
             this.leafContext = leafContext;
             this.field = field;
-            this.vector = vector;
+            this.queryVector = vector;
         }
 
         @Override
         public double runAsDouble() {
             try {
-                if (!lookup.source().containsKey(field)) {
-                    return 0;
+
+                List<Double> vector;
+
+                /*
+                 *  this field value doesn't read from DocValues, which is slow than read value from doc vlaues,
+                 *  in order to read value from doc values, we must store the vector as a str splited by ",", cause double array
+                 *  can't not store in doc values
+                 */
+//                Object object = lookup.source().get(field);
+                SortedSetDocValues docValues = DocValues.getSortedSet(leafContext.reader(), field);
+                if (docValues == null){
+                    return 0.0;
                 }
 
-                List<Double> titleVec;
+                StringBuilder  vectorBuilder = new StringBuilder();
+                long ord;
+                while ((ord = docValues.nextOrd()) != SortedSetDocValues.NO_MORE_ORDS) {
+                    BytesRef bytesRef = docValues.lookupOrd(ord);
+                    vectorBuilder.append(bytesRef.utf8ToString());
+                }
 
-                //TODO: is this field value read from DocValues ?
-                Object object = lookup.source().get(field);
-                if (null == object){
-                    //TODO: better process ?
+                String vectorStr =  vectorBuilder.toString();
+                if (null == vectorStr){
                     return 0.0;
-                }else if (object instanceof List){
-                   titleVec = (List<Double>) object;
-                }else  if (object instanceof String){
-                    String vectorStr = (String) object;
+                }
+
+                vectorStr = vectorStr.trim();
+                if ( vectorStr.length() == 0){
+                    return 0.0;
+                } else {
                     String[] values = vectorStr.split(",");
-                    titleVec = new ArrayList<>();
+                    vector = new ArrayList<>();
 
                     for (int i = 0; i < values.length; i++) {
-                        titleVec.add(Double.valueOf(values[i]).doubleValue());
+                        vector.add(Double.valueOf(values[i]).doubleValue());
                     }
-                }else {
-                    return 0.0;
                 }
 
-                int size = 0;
-                if (vector.size() != titleVec.size()) {
+                int size = Math.min(this.queryVector.size(), vector.size());
+                if (this.queryVector.size() != vector.size()) {
                     //TODO: throw Exception ?
                     logger.warn("vector size is not equal " + field + "vector size:" + vector.size());
-                    size = Math.max(vector.size(), titleVec.size());
                 }
 
-                double sum1 = 0, sum2 = 0, queryValue=0, fieldValue=0, dot=0;
+                double sum1 = 0, sum2 = 0, queryValue=0, fieldValue=0, dot=0, score=0;
                 for (int i = 0; i < size; i++) {
-                    queryValue = vector.get(i);
-                    fieldValue = titleVec.get(i);
+                    queryValue = this.queryVector.get(i);
+                    fieldValue = vector.get(i);
                     dot += queryValue * fieldValue;
                     sum1 += queryValue * queryValue;
                     sum2 += fieldValue * fieldValue;
                 }
 
-                return dot / (Math.sqrt(sum1) * Math.sqrt(sum2));
+                double denominator = (Math.sqrt(sum1) * Math.sqrt(sum2));
+                if (denominator == 0){
+                    score = 0;
+                }else{
+                    score = dot / denominator;
+                }
+
+                if (score < 0 && null != params && params.containsKey(NEGATIVE_TO_ZERO)){
+                    boolean is_negative_to_zero = params.containsKey(NEGATIVE_TO_ZERO);
+                    if (is_negative_to_zero){
+                        score = 0;
+                    }
+                }
+                
+                return score;
             } catch (Exception e) {
                 logger.error(e);
                 throw new ElasticsearchGenerationException("Dot product calculation of field : " + field + " error, " + e.getMessage(), e);
