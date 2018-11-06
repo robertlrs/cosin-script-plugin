@@ -120,7 +120,6 @@ public class CosinSimEngine implements ScriptEngine {
             try {
 
                 List<Double> vector;
-                long t1 = System.nanoTime();
 
                 /*
                  *  this field value doesn't read from DocValues, which is slow than read value from doc vlaues,
@@ -134,18 +133,12 @@ public class CosinSimEngine implements ScriptEngine {
                     return 0.0;
                 }
 
-                long t2 = System.nanoTime();
-                logger.info("get doc values cost = " + (t2-t1));
-
                 StringBuilder  vectorBuilder = new StringBuilder();
                 long ord;
                 while ((ord = docValues.nextOrd()) != SortedSetDocValues.NO_MORE_ORDS) {
                     BytesRef bytesRef = docValues.lookupOrd(ord);
                     vectorBuilder.append(bytesRef.utf8ToString());
                 }
-
-                long t3 = System.nanoTime();
-                logger.info("read doc values cost = " + (t3-t2));
 
                 String vectorStr =  vectorBuilder.toString();
                 if (null == vectorStr){
@@ -154,6 +147,7 @@ public class CosinSimEngine implements ScriptEngine {
 
                 vectorStr = vectorStr.trim();
                 if ( vectorStr.length() == 0){
+
                     return 0.0;
                 } else {
                     String[] values = vectorStr.split(",");
@@ -164,17 +158,11 @@ public class CosinSimEngine implements ScriptEngine {
                     }
                 }
 
-                long t4 = System.nanoTime();
-                logger.info("split vector cost = " + (t4-t3));
-
                 int size = Math.min(this.queryVector.size(), vector.size());
-                if (this.queryVector.size() != vector.size()) {
-                    //TODO: throw Exception ?
-                    logger.warn("vector size is not equal " + field + "vector size:" + vector.size());
-                }
-
-                long t5 = System.nanoTime();
-                logger.info("match.min cost = " + (t5-t4));
+//                if (this.queryVector.size() != vector.size()) {
+//                    //TODO: throw Exception ?
+//                    logger.warn("vector size is not equal " + field + "vector size:" + vector.size());
+//                }
 
                 double sum1 = 0, sum2 = 0, queryValue=0, fieldValue=0, dot=0, score=0;
                 for (int i = 0; i < size; i++) {
@@ -185,9 +173,6 @@ public class CosinSimEngine implements ScriptEngine {
                     sum2 += fieldValue * fieldValue;
                 }
 
-                long t6 = System.nanoTime();
-                logger.info("doc caculate cost = " + (t6-t5));
-
                 double denominator = (Math.sqrt(sum1) * Math.sqrt(sum2));
                 if (denominator == 0){
                     score = 0;
@@ -195,20 +180,13 @@ public class CosinSimEngine implements ScriptEngine {
                     score = dot / denominator;
                 }
 
-                long t7 = System.nanoTime();
-                logger.info("sqrt cost = " + (t7-t6));
-
-
                 if (score < 0 && null != params && params.containsKey(NEGATIVE_TO_ZERO)){
                     boolean is_negative_to_zero = params.containsKey(NEGATIVE_TO_ZERO);
                     if (is_negative_to_zero){
                         score = 0;
                     }
                 }
-
-                long t8 = System.nanoTime();
-                logger.info("negetive cost = " + (t8-t7));
-                logger.info("total cost = "+(t8-t1));
+                
                 return score;
             } catch (Exception e) {
                 logger.error(e);
