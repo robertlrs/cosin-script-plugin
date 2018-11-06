@@ -4,16 +4,25 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.ElasticsearchGenerationException;
+import org.elasticsearch.index.fielddata.IndexFieldData;
+import org.elasticsearch.index.fielddata.IndexNumericFieldData;
+import org.elasticsearch.index.fielddata.ScriptDocValues;
+import org.elasticsearch.index.fielddata.SortedNumericDoubleValues;
+import org.elasticsearch.index.fielddata.plain.BinaryDVAtomicFieldData;
+import org.elasticsearch.index.mapper.MappedFieldType;
+import org.elasticsearch.index.mapper.MapperService;
 import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
 import org.elasticsearch.script.SearchScript;
 import org.elasticsearch.search.lookup.SearchLookup;
 
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -104,7 +113,6 @@ public class CosinSimEngine implements ScriptEngine {
         private final String field;
         private final List<Double> queryVector;
 
-
         public CosinScript(Map<String, Object> params, SearchLookup lookup, LeafReaderContext leafContext, String field, List<Double> vector) {
             super(params, lookup, leafContext);
 
@@ -118,50 +126,27 @@ public class CosinSimEngine implements ScriptEngine {
         @Override
         public double runAsDouble() {
             try {
-
-                List<Double> vector;
+                List<Double> vector = new ArrayList<>();
 
                 /*
-                 *  this field value doesn't read from DocValues, which is slow than read value from doc vlaues,
                  *  in order to read value from doc values, we must store the vector as a str splited by ",", cause double array
-                 *  can't not store in doc values
+                 *  can't not store in doc values， while str spliting  consumes a lot of CPU resources
                  *  TODO: use binary coding instead of vectorStr
+                 *  Object object = lookup.source().get(field) : this way is fetching field from fielddata , but it will cost much memory.
                  */
 //                Object object = lookup.source().get(field);
+
                 SortedSetDocValues docValues = DocValues.getSortedSet(leafContext.reader(), field);
-                if (docValues == null){
-                    return 0.0;
-                }
-
-                StringBuilder  vectorBuilder = new StringBuilder();
-                long ord;
-                while ((ord = docValues.nextOrd()) != SortedSetDocValues.NO_MORE_ORDS) {
-                    BytesRef bytesRef = docValues.lookupOrd(ord);
-                    vectorBuilder.append(bytesRef.utf8ToString());
-                }
-
-                String vectorStr =  vectorBuilder.toString();
-                if (null == vectorStr){
-                    return 0.0;
-                }
-
-                vectorStr = vectorStr.trim();
-                if ( vectorStr.length() == 0){
-                    return 0.0;
-                } else {
-                    String[] values = vectorStr.split(",");
-                    vector = new ArrayList<>();
-
-                    for (int i = 0; i < values.length; i++) {
-                        vector.add(Double.valueOf(values[i]).doubleValue());
-                    }
+                long valueCount = docValues.getValueCount();
+                for(int i=0; i<valueCount; i++){
+                    vector.add(Double.parseDouble(docValues.lookupOrd(i).utf8ToString()));
                 }
 
                 int size = Math.min(this.queryVector.size(), vector.size());
-                if (this.queryVector.size() != vector.size()) {
-                    //TODO: throw Exception ?
-                    logger.warn("vector size is not equal " + field + "vector size:" + vector.size());
-                }
+//                if (this.queryVector.size() != vector.size()) {
+//                    //TODO: throw Exception ?
+//                    logger.warn("vector size is not equal " + field + "vector size:" + vector.size());
+//                }
 
                 double sum1 = 0, sum2 = 0, queryValue=0, fieldValue=0, dot=0, score=0;
                 for (int i = 0; i < size; i++) {
@@ -180,18 +165,98 @@ public class CosinSimEngine implements ScriptEngine {
                 }
 
                 if (score < 0 && null != params && params.containsKey(NEGATIVE_TO_ZERO)){
-                    boolean is_negative_to_zero = params.containsKey(NEGATIVE_TO_ZERO);
+                    boolean is_negative_to_zero = (boolean) params.get(NEGATIVE_TO_ZERO);
+
                     if (is_negative_to_zero){
                         score = 0;
                     }
                 }
-                
+
                 return score;
             } catch (Exception e) {
                 logger.error(e);
                 throw new ElasticsearchGenerationException("Dot product calculation of field : " + field + " error, " + e.getMessage(), e);
             }
         }
+
+//        @Override
+//        public double runAsDouble() {
+//            try {
+//                List<Double> vector;
+//
+//                /*
+//                 *  in order to read value from doc values, we must store the vector as a str splited by ",", cause double array
+//                 *  can't not store in doc values， while str spliting  consumes a lot of CPU resources
+//                 *  TODO: use binary coding instead of vectorStr
+//                 *  Object object = lookup.source().get(field) : this way is fetching field from fielddata , but it will cost much memory.
+//                 */
+////                Object object = lookup.source().get(field);
+//
+//                SortedSetDocValues docValues = DocValues.getSortedSet(leafContext.reader(), field);
+//                if (docValues == null){
+//                    return 0.0;
+//                }
+//
+//                StringBuilder  vectorBuilder = new StringBuilder();
+//                long ord;
+//                while ((ord = docValues.nextOrd()) != SortedSetDocValues.NO_MORE_ORDS) {
+//                    BytesRef bytesRef = docValues.lookupOrd(ord);
+//                    vectorBuilder.append(bytesRef.utf8ToString());
+//                }
+//
+//                String vectorStr =  vectorBuilder.toString();
+//                if (null == vectorStr){
+//                    return 0.0;
+//                }
+//
+//                vectorStr = vectorStr.trim();
+//                if ( vectorStr.length() == 0){
+//                    return 0.0;
+//                } else {
+//                    String[] values = vectorStr.split(",");
+//                    vector = new ArrayList<>();
+//
+//                    for (int i = 0; i < values.length; i++) {
+//                        vector.add(Double.valueOf(values[i]).doubleValue());
+//                    }
+//                }
+//
+//                int size = Math.min(this.queryVector.size(), vector.size());
+////                if (this.queryVector.size() != vector.size()) {
+////                    //TODO: throw Exception ?
+////                    logger.warn("vector size is not equal " + field + "vector size:" + vector.size());
+////                }
+//
+//                double sum1 = 0, sum2 = 0, queryValue=0, fieldValue=0, dot=0, score=0;
+//                for (int i = 0; i < size; i++) {
+//                    queryValue = this.queryVector.get(i);
+//                    fieldValue = vector.get(i);
+//                    dot += queryValue * fieldValue;
+//                    sum1 += queryValue * queryValue;
+//                    sum2 += fieldValue * fieldValue;
+//                }
+//
+//                double denominator = (Math.sqrt(sum1) * Math.sqrt(sum2));
+//                if (denominator == 0){
+//                    score = 0;
+//                }else{
+//                    score = dot / denominator;
+//                }
+//
+//                if (score < 0 && null != params && params.containsKey(NEGATIVE_TO_ZERO)){
+//                    boolean is_negative_to_zero = (boolean) params.get(NEGATIVE_TO_ZERO);
+//
+//                    if (is_negative_to_zero){
+//                        score = 0;
+//                    }
+//                }
+//
+//                return score;
+//            } catch (Exception e) {
+//                logger.error(e);
+//                throw new ElasticsearchGenerationException("Dot product calculation of field : " + field + " error, " + e.getMessage(), e);
+//            }
+//        }
     }
 
 

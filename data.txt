@@ -1,0 +1,81 @@
+DELETE robert_idx
+PUT robert_idx
+
+POST robert_idx/product/_mapping
+{
+  "properties": {
+    "catStr": {
+      "type": "keyword"
+    },
+    "titleStr": {
+      "type": "keyword"
+    }
+  }
+}
+
+put robert_idx/product/1
+{
+  "title":"yixin cup",
+  "titleVec":[0.1,0.2,0.1],
+  "catStr":"0.1,0.2,0.1",
+  "cnt":1
+}
+
+put robert_idx/product/2
+{
+  "title":"yixin cup",
+  "titleStr":"0,0.3,0.9",
+  "titleVec":[0,0.3,0.9],
+  "catStr":"0,0.3,0.9",
+  "cnt":1
+}
+
+put robert_idx/product/3
+{
+  "title":"yixin xxxup",
+  "titleStr":"0,0.3,0.9",
+  "cnt":1
+}
+
+
+GET robert_idx/_search?explain=true
+{
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "term": {
+                "title.keyword": {
+                  "value": "yixin cup"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "boost": 2,
+      "functions": [
+        {
+          "weight": 1,
+          "script_score": {
+            "script": {
+              "source": "vector",
+              "lang": "cosin-sim-plugin",
+              "params": {
+                "field": "titleVec",
+                "negative_to_zero":false,
+                "vector": [
+                  0.1,
+                  0.3,
+                  0.5
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
