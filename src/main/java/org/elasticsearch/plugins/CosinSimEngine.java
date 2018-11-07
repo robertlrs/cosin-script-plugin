@@ -86,10 +86,9 @@ public class CosinSimEngine implements ScriptEngine {
 
         private void genVector(Object object){
             if (object == null){
-                throw new IllegalArgumentException("parameter object is null in method genVector!");
-            }
-
-            if (object instanceof List){
+                vector = null;
+//                throw new IllegalArgumentException("parameter object is null in method genVector!");
+            }else if (object instanceof List){
                 vector = (List<Double>) object;
             }else{
                 throw new IllegalArgumentException("parameter [vector] type error, it must be List<Double> or String!");
@@ -119,13 +118,18 @@ public class CosinSimEngine implements ScriptEngine {
         public double runAsDouble() {
             try {
 
+                if (null == queryVector || queryVector.size() == 0){
+                    return 0;
+                }
+
                 List<Double> vector;
 
                 /*
                  *  this field value doesn't read from DocValues, which is slow than read value from doc vlaues,
                  *  in order to read value from doc values, we must store the vector as a str splited by ",", cause double array
                  *  can't not store in doc values
-                 *  TODO: use binary coding instead of vectorStr
+                 *  Object object = lookup.source().get(field); this way fetches _source field from fielddata, this way we can store field as double arry,
+                  *  but it will cost much memory if _source field is too long.
                  */
 //                Object object = lookup.source().get(field);
                 SortedSetDocValues docValues = DocValues.getSortedSet(leafContext.reader(), field);
