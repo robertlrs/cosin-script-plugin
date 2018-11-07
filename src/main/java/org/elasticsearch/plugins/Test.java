@@ -2,8 +2,10 @@ package org.elasticsearch.plugins;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
@@ -12,13 +14,77 @@ import java.util.regex.Pattern;
  * @date 2018/11/6 下午1:33
  **/
 public class Test {
+    private final static int BASE = 100000000;
 
     public static void main(String[] args){
         String vector = "-1.1171832,-0.3780405,0.3337526,0.15939993,0.13482684,-0.31201524,-0.25829744,0.0725092,0.50081295,0.01827795,-0.43903276,0.034389388,-0.79033047,0.13608126,0.10281673,0.35327142,-0.17831749,0.23848195,-0.033562217,-0.26840922,0.5938388,-0.18657734,0.83033156,-0.23918945,0.14713119,-0.31941086,0.007708749,0.7578405,-1.022855,-0.50170726,0.3520088,-0.20467958,0.17235652,-0.139589,-0.1631417,0.8353913,0.10219347,-0.388795,0.07647285,-0.2908355,-0.24339563,-0.15178286,-0.07478876,-0.11378531,-0.45412683,-0.30300075,-0.7114446,-0.20202103,-0.61964625,0.08439794,0.10052217,0.96028036,-0.18361042,-0.94362885,-0.3447363,-0.07802301,-0.2356229,-0.25437707,-0.24875523,-0.016738228,0.30123222,0.9300449,-0.16621675,0.037936486,-0.5070223,0.54617697,-0.6377112,0.6944816,-0.27483928,-0.27019218,0.049831714,0.6240245,0.3427551,0.45595884,-0.18883742,-0.23559922,0.2295076,0.053038727,-0.32245815,-0.0010048009,-0.1508324,-0.79106486,0.35822892,0.23496896,-0.84840465,0.03205013,0.24696952,0.5942428,0.18813421,-0.31138882,-0.3398951,-0.40265787,-0.04076755,0.0605929,0.29719654,-0.8960997,0.13318661,-0.9137943,0.16636375,0.43241948,0.43644714,0.6275584,0.16942447,0.6579864,-0.013733178,-0.058598302,0.18622275,1.0300895,0.19062556,0.99226594,-0.13707326,-0.40462485,-0.014861291,-0.4756285,0.19205087,0.058207225,0.7265166,-0.47054908,0.2964989,-0.75413096,-0.04979557,0.42084476,0.29113492,-0.1872921,0.102164395,0.04577875,0.8091988,-0.39580247,0.10982584,-0.44471112,0.45644343,-0.6756127,0.32954213,0.6726754,-0.38056678,0.76600194,-0.73512554,-0.10454669,0.56802756,-0.12399674,-0.6879508,0.45780754,-0.39279765,0.17274807,-0.8299904,0.40999433,0.42996117,0.48164815,0.5319984,-0.7305975";
-        tokenSplit(vector);
-        jdkSplit(vector);
-        jdkPattern(vector);
-        encode(vector);
+//        tokenSplit(vector);
+//        jdkSplit(vector);
+//        jdkPattern(vector);
+//        encode(vector);
+        parseDoubleString(vector);
+        parseLongString(vector);
+    }
+
+    public static void parseDoubleString(String vector){
+        List<String> strings = getDoubleStringList(vector);
+
+        final int count =10000;
+        final int size = strings.size();
+
+        long begin = System.nanoTime();
+        for (int i=0; i<count; i++){
+            for(int j=0; j<size; j++){
+                Double.parseDouble(strings.get(j));
+            }
+        }
+
+        System.out.println("double parseString  cost: "+(System.nanoTime()-begin));
+
+        long begin2 = System.nanoTime();
+    }
+
+    public static void parseLongString(String vector){
+        List<String> strings = getLongList(vector);
+
+        final int count =100000;
+        final int size = strings.size();
+
+        long begin = System.nanoTime();
+        for (int i=0; i<count; i++){
+            for(int j=0; j<size; j++){
+                Long value = Long.parseLong(strings.get(j));
+                Double doubleValue = 1.0* value / BASE;
+            }
+        }
+
+        System.out.println("parseLongString  cost: "+(System.nanoTime()-begin));
+    }
+
+    public static List<String> getLongList(String vector){
+        String[] values =vector.split("\\,");
+        List<String> strings = new ArrayList<>();
+
+        for (int i = 0; i < values.length; i++) {
+            Double value = (Double.parseDouble(values[i]) * BASE);
+            Long longValue = value.longValue();
+            strings.add(longValue.toString());
+        }
+
+
+        return strings;
+    }
+
+
+    public static List<String> getDoubleStringList(String vector){
+        String[] values =vector.split("\\,");
+        List<String> strings = new ArrayList<>();
+
+        for (int i = 0; i < values.length; i++) {
+            strings.add(values[i]);
+        }
+
+        return strings;
     }
 
     public static void tokenSplit(String vector){
