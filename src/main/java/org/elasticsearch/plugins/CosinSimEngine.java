@@ -181,7 +181,7 @@ public class CosinSimEngine implements ScriptEngine {
                 }
 
                 if (score < 0 && null != params && params.containsKey(NEGATIVE_TO_ZERO)){
-                    boolean is_negative_to_zero = params.containsKey(NEGATIVE_TO_ZERO);
+                    boolean is_negative_to_zero = (boolean) params.get(NEGATIVE_TO_ZERO);
                     if (is_negative_to_zero){
                         score = 0;
                     }
