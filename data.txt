@@ -1,0 +1,1533 @@
+DELETE robert_idx
+PUT robert_idx
+
+POST robert_idx/product/_mapping
+{
+  "properties": {
+    "catStr": {
+      "type": "keyword"
+    },
+    "titleStr": {
+      "type": "keyword"
+    }
+  }
+}
+
+GET item/_search
+
+put robert_idx/product/1
+{
+  "title":"yixin cup",
+  "titleVec":[0.1,0.2,0.1],
+  "catStr":"0.1,0.2,0.1",
+  "cnt":1
+}
+
+put robert_idx/product/2
+{
+  "title":"yixin cup",
+  "titleStr":"0,0.3,0.9",
+  "titleVec":[0,0.3,0.9],
+  "catStr":"0,0.3,0.9",
+  "cnt":1
+}
+
+put robert_idx/product/3
+{
+  "title":"yixin xxxup",
+  "titleStr":"0,0.3,0.9",
+  "cnt":1
+}
+
+
+
+GET robert_idx/_search?explain=true
+{
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "term": {
+                "title.keyword": {
+                  "value": "yixin cup"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "boost": 2,
+      "functions": [
+        {
+          "weight": 1,
+          "script_score": {
+            "script": {
+              "source": "vector",
+              "lang": "cosin-sim-plugin",
+              "params": {
+                "field": "titleVec",
+                "negative_to_zero":false,
+                "vector": [
+                  0.1,
+                  0.3,
+                  0.5
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET item/_search
+{
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "dis_max": {
+                "tie_breaker": 0,
+                "queries": [
+                  {
+                    "nested": {
+                      "query": {
+                        "term": {
+                          "tags.value": {
+                            "value": "翡翠",
+                            "boost": 1
+                          }
+                        }
+                      },
+                      "path": "tags",
+                      "ignore_unmapped": false,
+                      "score_mode": "sum",
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "nested": {
+                      "query": {
+                        "term": {
+                          "attrs.value": {
+                            "value": "翡翠",
+                            "boost": 1
+                          }
+                        }
+                      },
+                      "path": "attrs",
+                      "ignore_unmapped": false,
+                      "score_mode": "sum",
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "term": {
+                      "preCategoryList": {
+                        "value": "翡翠",
+                        "boost": 2
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "titleSmart2": {
+                        "value": "翡翠",
+                        "boost": 4
+                      }
+                    }
+                  }
+                ],
+                "boost": 1
+              }
+            },
+            {
+              "bool": {
+                "should": [
+                  {
+                    "dis_max": {
+                      "tie_breaker": 0,
+                      "queries": [
+                        {
+                          "match_all": {
+                            "boost": 0
+                          }
+                        },
+                        {
+                          "range": {
+                            "createtm": {
+                              "from": 1541400990798,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.25
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "createtm": {
+                              "from": 1541228190798,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.2
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "createtm": {
+                              "from": 1540882590798,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.15
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "createtm": {
+                              "from": 1543190358094,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.1
+                            }
+                          }
+                        }
+                      ],
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "dis_max": {
+                      "tie_breaker": 0,
+                      "queries": [
+                        {
+                          "match_all": {
+                            "boost": 0
+                          }
+                        },
+                        {
+                          "range": {
+                            "recommendTm": {
+                              "from": 0,
+                              "to": null,
+                              "include_lower": false,
+                              "include_upper": true,
+                              "boost": 0.1
+                            }
+                          }
+                        }
+                      ],
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "dis_max": {
+                      "tie_breaker": 0,
+                      "queries": [
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 500,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.3
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 50000,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.45
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 1,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.1
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 100,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.25
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 50,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.2
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 2000,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.35
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 20,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.15
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 10000,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.4
+                            }
+                          }
+                        },
+                        {
+                          "match_all": {
+                            "boost": 0
+                          }
+                        }
+                      ],
+                      "boost": 1
+                    }
+                  }
+                ],
+                "adjust_pure_negative": true,
+                "boost": 1
+              }
+            }
+          ],
+          "filter": [
+            {
+              "bool": {
+                "must": [
+                  {
+                    "range": {
+                      "stock": {
+                        "from": 0,
+                        "to": null,
+                        "include_lower": false,
+                        "include_upper": true,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "terms": {
+                      "type": [
+                        1,
+                        2
+                      ],
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "range": {
+                      "price": {
+                        "from": 10.0001,
+                        "to": null,
+                        "include_lower": false,
+                        "include_upper": true,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "itemStatus": {
+                        "value": 1,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "bottom": {
+                        "value": 0,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "postStatus": {
+                        "value": 0,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "filter": {
+                        "value": 0,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "bool": {
+                      "must_not": [
+                        {
+                          "terms": {
+                            "saleType": [
+                              1,
+                              3
+                            ],
+                            "boost": 1
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative": true,
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "has_parent": {
+                      "query": {
+                        "bool": {
+                          "must": [
+                            {
+                              "term": {
+                                "inBlackList": {
+                                  "value": false,
+                                  "boost": 1
+                                }
+                              }
+                            },
+                            {
+                              "term": {
+                                "craftsmanRemoved": {
+                                  "value": false,
+                                  "boost": 1
+                                }
+                              }
+                            }
+                          ],
+                          "adjust_pure_negative": true,
+                          "boost": 1
+                        }
+                      },
+                      "parent_type": "user",
+                      "score": true,
+                      "ignore_unmapped": false,
+                      "boost": 1
+                    }
+                  }
+                ],
+                "adjust_pure_negative": true,
+                "boost": 1
+              }
+            }
+          ]
+        }
+      },
+      "boost": 2,
+      "functions": [
+        {
+          "weight": 1,
+          "script_score": {
+            "script": {
+              "source": "vector",
+              "lang": "cosin-sim-plugin",
+              "params": {
+                "field": "titleVec",
+                "negative_to_zero": false,
+                "vector": [
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3
+                ]
+              }
+            }
+          }
+        },
+        {
+          "weight": 1,
+          "script_score": {
+            "script": {
+              "source": "vector",
+              "lang": "cosin-sim-plugin",
+              "params": {
+                "field": "cateVec",
+                "negative_to_zero": false,
+                "vector": [
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+GET item/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "id": {
+              "value": "u_595293"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+GET item/_search?explain=true
+{
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "dis_max": {
+                "tie_breaker": 0,
+                "queries": [
+                  {
+                    "nested": {
+                      "query": {
+                        "term": {
+                          "tags.value": {
+                            "value": "翡翠",
+                            "boost": 1
+                          }
+                        }
+                      },
+                      "path": "tags",
+                      "ignore_unmapped": false,
+                      "score_mode": "sum",
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "nested": {
+                      "query": {
+                        "term": {
+                          "attrs.value": {
+                            "value": "翡翠",
+                            "boost": 1
+                          }
+                        }
+                      },
+                      "path": "attrs",
+                      "ignore_unmapped": false,
+                      "score_mode": "sum",
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "term": {
+                      "preCategoryList": {
+                        "value": "翡翠",
+                        "boost": 2
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "titleSmart2": {
+                        "value": "翡翠",
+                        "boost": 4
+                      }
+                    }
+                  }
+                ],
+                "boost": 1
+              }
+            },
+            {
+              "bool": {
+                "should": [
+                  {
+                    "dis_max": {
+                      "tie_breaker": 0,
+                      "queries": [
+                        {
+                          "match_all": {
+                            "boost": 0
+                          }
+                        },
+                        {
+                          "range": {
+                            "createtm": {
+                              "from": 1541400990798,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.25
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "createtm": {
+                              "from": 1541228190798,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.2
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "createtm": {
+                              "from": 1540882590798,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.15
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "createtm": {
+                              "from": 1543190358094,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.1
+                            }
+                          }
+                        }
+                      ],
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "dis_max": {
+                      "tie_breaker": 0,
+                      "queries": [
+                        {
+                          "match_all": {
+                            "boost": 0
+                          }
+                        },
+                        {
+                          "range": {
+                            "recommendTm": {
+                              "from": 0,
+                              "to": null,
+                              "include_lower": false,
+                              "include_upper": true,
+                              "boost": 0.1
+                            }
+                          }
+                        }
+                      ],
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "dis_max": {
+                      "tie_breaker": 0,
+                      "queries": [
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 500,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.3
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 50000,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.45
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 1,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.1
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 100,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.25
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 50,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.2
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 2000,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.35
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 20,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.15
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "sellcnt": {
+                              "from": 10000,
+                              "to": null,
+                              "include_lower": true,
+                              "include_upper": true,
+                              "boost": 0.4
+                            }
+                          }
+                        },
+                        {
+                          "match_all": {
+                            "boost": 0
+                          }
+                        }
+                      ],
+                      "boost": 1
+                    }
+                  }
+                ],
+                "adjust_pure_negative": true,
+                "boost": 1
+              }
+            }
+          ],
+          "filter": [
+            {
+              "bool": {
+                "must": [
+                  {
+                    "range": {
+                      "stock": {
+                        "from": 0,
+                        "to": null,
+                        "include_lower": false,
+                        "include_upper": true,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "terms": {
+                      "type": [
+                        1,
+                        2
+                      ],
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "range": {
+                      "price": {
+                        "from": 10.0001,
+                        "to": null,
+                        "include_lower": false,
+                        "include_upper": true,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "itemStatus": {
+                        "value": 1,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "bottom": {
+                        "value": 0,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "postStatus": {
+                        "value": 0,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "filter": {
+                        "value": 0,
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "bool": {
+                      "must_not": [
+                        {
+                          "terms": {
+                            "saleType": [
+                              1,
+                              3
+                            ],
+                            "boost": 1
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative": true,
+                      "boost": 1
+                    }
+                  },
+                  {
+                    "has_parent": {
+                      "query": {
+                        "bool": {
+                          "must": [
+                            {
+                              "term": {
+                                "inBlackList": {
+                                  "value": false,
+                                  "boost": 1
+                                }
+                              }
+                            },
+                            {
+                              "term": {
+                                "craftsmanRemoved": {
+                                  "value": false,
+                                  "boost": 1
+                                }
+                              }
+                            }
+                          ],
+                          "adjust_pure_negative": true,
+                          "boost": 1
+                        }
+                      },
+                      "parent_type": "user",
+                      "score": true,
+                      "ignore_unmapped": false,
+                      "boost": 1
+                    }
+                  }
+                ],
+                "adjust_pure_negative": true,
+                "boost": 1
+              }
+            }
+          ]
+        }
+      },
+      "boost": 2,
+      "functions": [
+        {
+          "weight": 1,
+          "script_score": {
+            "script": {
+              "source": "vector",
+              "lang": "cosin-sim-plugin",
+              "params": {
+                "field": "titleVec",
+                "negative_to_zero": false,
+                "vector": [
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3
+                ]
+              }
+            }
+          }
+        },
+        {
+          "weight": 1,
+          "script_score": {
+            "script": {
+              "source": "vector",
+              "lang": "cosin-sim-plugin",
+              "params": {
+                "field": "cateVec",
+                "negative_to_zero": false,
+                "vector": [
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3,
+                  0.1,
+                  0.3,
+                  0.9,
+                  0.8,
+                  0.3
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

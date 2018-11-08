@@ -4,10 +4,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.ElasticsearchGenerationException;
+import org.elasticsearch.index.fielddata.ScriptDocValues;
 import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
 import org.elasticsearch.script.SearchScript;
@@ -103,7 +105,6 @@ public class CosinSimEngine implements ScriptEngine {
         private final String field;
         private final List<Double> queryVector;
 
-
         public CosinScript(Map<String, Object> params, SearchLookup lookup, LeafReaderContext leafContext, String field, List<Double> vector) {
             super(params, lookup, leafContext);
 
@@ -132,26 +133,32 @@ public class CosinSimEngine implements ScriptEngine {
                   *  but it will cost much memory if _source field is too long.
                  */
 //                Object object = lookup.source().get(field);
-                SortedSetDocValues docValues = DocValues.getSortedSet(leafContext.reader(), field);
-                if (docValues == null){
+//                SortedSetDocValues docValues = DocValues.getSortedSet(leafContext.reader(), field);
+//                if (docValues == null){
+//                    return 0.0;
+//                }
+//
+//                StringBuilder  vectorBuilder = new StringBuilder();
+//                long ord;
+//                while ((ord = docValues.nextOrd()) != SortedSetDocValues.NO_MORE_ORDS) {
+//                    BytesRef bytesRef = docValues.lookupOrd(ord);
+//                    vectorBuilder.append(bytesRef.utf8ToString());
+//                }
+
+//                String vectorStr =  vectorBuilder.toString();
+
+                ScriptDocValues scriptDocValues = this.getLeafLookup().doc().get(field);
+                if (null == scriptDocValues || null == scriptDocValues.getValues() || scriptDocValues.getValues().size() == 0){
                     return 0.0;
                 }
 
-                StringBuilder  vectorBuilder = new StringBuilder();
-                long ord;
-                while ((ord = docValues.nextOrd()) != SortedSetDocValues.NO_MORE_ORDS) {
-                    BytesRef bytesRef = docValues.lookupOrd(ord);
-                    vectorBuilder.append(bytesRef.utf8ToString());
-                }
-
-                String vectorStr =  vectorBuilder.toString();
+                String vectorStr = (String) scriptDocValues.getValues().get(0);
                 if (null == vectorStr){
                     return 0.0;
                 }
 
                 vectorStr = vectorStr.trim();
                 if ( vectorStr.length() == 0){
-
                     return 0.0;
                 } else {
                     String[] values = vectorStr.split(",");
@@ -190,7 +197,15 @@ public class CosinSimEngine implements ScriptEngine {
                         score = 0;
                     }
                 }
-                
+//
+//                logger.info(vector);
+//                logger.info(queryVector);
+//                logger.info("sum1 :" + sum1);
+//                logger.info("sum2 :" + sum2);
+//                logger.info("dot : " + dot);
+//                logger.info("denominator :" + denominator);
+//                logger.info("score :" + score);
+
                 return score;
             } catch (Exception e) {
                 logger.error(e);
