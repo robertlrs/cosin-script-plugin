@@ -10,7 +10,17 @@ import java.util.List;
 public class Test {
 
     public static void main(String[] args){
-        dot();
+        calculate();
+    }
+
+    public static void calculate(){
+        String str = "翡翠挂件/喜上眉梢";
+        System.out.println(str.length());
+        int len = 30;
+//        int len = str.length();
+
+
+        System.out.println(1/Math.log(len+4) + 0.4);
     }
 
     public static void dot(){

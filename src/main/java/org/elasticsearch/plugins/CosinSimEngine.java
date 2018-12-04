@@ -15,6 +15,7 @@ import org.elasticsearch.script.ScriptEngine;
 import org.elasticsearch.script.SearchScript;
 import org.elasticsearch.search.lookup.SearchLookup;
 
+import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,8 +29,16 @@ import java.util.Map;
 public class CosinSimEngine implements ScriptEngine {
     private final static Logger logger = LogManager.getLogger(CosinSimEngine.class);
     private static final String FIELD = "field";
+    /**
+     * 词长度字段
+     */
+    private static final String LEN_FIELD = "length_field";
+    private static final Integer DEFAULT_LENGHT = 2;
     private static String VECTOR = "vector";
     private static String NEGATIVE_TO_ZERO = "negative_to_zero";
+
+    private static final int X_DRIFT = 4;
+    private static final double Y_DRIFT = 0.05;
 
     @Override
     public String getType() {
@@ -130,7 +139,7 @@ public class CosinSimEngine implements ScriptEngine {
                  *  in order to read value from doc values, we must store the vector as a str splited by ",", cause double array
                  *  can't not store in doc values
                  *  Object object = lookup.source().get(field); this way fetches _source field from fielddata, this way we can store field as double arry,
-                  *  but it will cost much memory if _source field is too long.
+                 *  but it will cost much memory if _source field is too long.
                  */
 //                Object object = lookup.source().get(field);
 //                SortedSetDocValues docValues = DocValues.getSortedSet(leafContext.reader(), field);
@@ -206,11 +215,51 @@ public class CosinSimEngine implements ScriptEngine {
 //                logger.info("denominator :" + denominator);
 //                logger.info("score :" + score);
 
+                /**
+                 * 词长度
+                 */
+                Integer titleLen = DEFAULT_LENGHT; // 防止有些文档缺失长度字段
+                if (params.containsKey(LEN_FIELD)){
+                    final String lenField = (String) params.get(LEN_FIELD);
+                    scriptDocValues = this.getLeafLookup().doc().get(lenField);
+                    if (null != scriptDocValues && null != scriptDocValues.getValues() && scriptDocValues.getValues().size() != 0){
+                        try{
+                            Object value = scriptDocValues.getValues().get(0);
+                            if (value instanceof Long){
+                                titleLen = ((Long) value).intValue();
+                            }else if (value instanceof Integer){
+                                titleLen = (Integer) value;
+                            }else if (value instanceof Double){
+                                titleLen = ((Double) value).intValue();
+                            }
+                        }catch (Exception e){
+                            logger.error(e);
+                        }
+                    }
+                }
+
+                if (null == titleLen){
+                    titleLen = DEFAULT_LENGHT;
+                }
+
+                double lenFactor = getLenFactor(titleLen, X_DRIFT, Y_DRIFT);
+                score = score * lenFactor;
+
                 return score;
             } catch (Exception e) {
                 logger.error(e);
                 throw new ElasticsearchGenerationException("Dot product calculation of field : " + field + " error, " + e.getMessage(), e);
             }
+        }
+
+        /**
+         *
+         * @param len
+         * @param xDrift x轴偏移
+         * @return yDrift y轴偏移
+         */
+        public double getLenFactor(int len, int xDrift, double yDrift){
+            return 1/Math.log(len + xDrift) + yDrift;
         }
     }
 
